@@ -1,3 +1,5 @@
+// rex is regular expression using file search utility.
+
 package main
 
 import (
@@ -8,17 +10,23 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 var (
 	dot = flag.Bool("dot", false, "search dotfiles")
-	exp = flag.String("exp", "", "")
+	ner = flag.Bool("ner", false, "print no error")
+
+	exp = flag.String("exp", "", "search regular expression exp in files")
 	pre = flag.String("pre", "", "search pre prefixed file names")
 	suf = flag.String("suf", "", "search suf suffixed file names")
 )
 
 var (
 	rex *regexp.Regexp
+
+	me sync.Mutex
+	wg sync.WaitGroup
 )
 
 func main() {
@@ -31,65 +39,76 @@ func main() {
 		fmt.Fprintf(os.Stderr, "rex: -exp: %v\n", err)
 		os.Exit(1)
 	}
-	check(readDir("."))
+	readDir(".")
+	wg.Wait()
 }
 
-func readDir(dirName string) error {
-	dir, err := os.Open(dirName)
+func readDir(name string) {
+	dir, err := os.Open(name)
 	if err != nil {
-		return err
+		pe(err)
+		return
 	}
 	defer dir.Close()
 	fi, err := dir.Readdir(0)
 	if err != nil {
-		return err
+		pe(err)
+		return
 	}
+	wg.Add(len(fi))
 	for _, fi := range fi {
-		name := fi.Name()
-		if !*dot && name[0] == '.' {
-			continue
-		}
-		if fi.IsDir() {
-			full := path.Join(dirName, name)
-			check(readDir(full))
-			continue
-		}
-		if *pre != "" && !strings.HasPrefix(name, *pre) {
-			continue
-		}
-		if *suf != "" && !strings.HasSuffix(name, *suf) {
-			continue
-		}
-		full := path.Join(dirName, name)
-		if *exp == "" {
-			fmt.Println(full)
-			continue
-		}
-		m, err := match(full)
-		if check(err) {
-			continue
-		}
-		if m {
-			fmt.Println(full)
-		}
+		go func(fi os.FileInfo) {
+			readFile(name, fi)
+			wg.Done()
+		}(fi)
 	}
-	return nil
 }
 
-func match(name string) (bool, error) {
-	f, err := os.Open(name)
+func readFile(dir string, fi os.FileInfo) {
+	name := fi.Name()
+	if !*dot && name[0] == '.' {
+		return
+	}
+	if fi.IsDir() {
+		readDir(path.Join(dir, name))
+		return
+	}
+	if *pre != "" && !strings.HasPrefix(name, *pre) {
+		return
+	}
+	if *suf != "" && !strings.HasSuffix(name, *suf) {
+		return
+	}
+	ful := path.Join(dir, name)
+	if *exp == "" {
+		po(ful)
+		return
+	}
+	f, err := os.Open(ful)
 	if err != nil {
-		return false, err
+		pe(err)
+		return
 	}
-	defer f.Close()
 	r := bufio.NewReader(f)
-	return rex.MatchReader(r), nil
+	m := rex.MatchReader(r)
+	f.Close()
+	if !m {
+		return
+	}
+	po(ful)
 }
 
-func check(err error) bool {
-	if err == nil {
-		return false
+func pe(err error) {
+	if *ner {
+		return
 	}
+	me.Lock()
 	fmt.Fprintf(os.Stderr, "rex: %v\n", err)
-	return true
+	me.Unlock()
+}
+
+func po(ln string) {
+	me.Lock()
+	fmt.Println(ln)
+	me.Unlock()
 }
