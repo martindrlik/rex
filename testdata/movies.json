@@ -1,0 +1,44 @@
+{
+	"schema": [
+		"movie_id",
+		"title",
+		"year"
+	],
+	"tuples": [
+		{
+			"movie_id": "M1",
+			"title": "The Matrix",
+			"year": 1999
+		},
+		{
+			"movie_id": "M2",
+			"title": "Blade Runner 2049",
+			"year": 2017
+		},
+		{
+			"movie_id": "M3",
+			"title": "Dune",
+			"year": 2021
+		},
+		{
+			"movie_id": "M4",
+			"title": "Thor: Love and Thunder",
+			"year": 2022
+		},
+		{
+			"movie_id": "M5",
+			"title": "Guardians of the Galaxy Vol. 3",
+			"year": 2023
+		},
+		{
+			"movie_id": "M6",
+			"title": "Barbie",
+			"year": 2023
+		},
+		{
+			"movie_id": "M7",
+			"title": "Dune: Part Two",
+			"year": 2023
+		}
+	]
+}

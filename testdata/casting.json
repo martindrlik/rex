@@ -1,0 +1,72 @@
+{
+	"schema": [
+		"movie_id",
+		"actor",
+		"character"
+	],
+	"tuples": [
+		{
+			"movie_id": "M1",
+			"actor": "Keanu Reeves",
+			"character": "Neo"
+		},
+		{
+			"movie_id": "M2",
+			"actor": "Harrison Ford",
+			"character": "Rick Deckard"
+		},
+		{
+			"movie_id": "M2",
+			"actor": "Ryan Gosling",
+			"character": "K"
+		},
+		{
+			"movie_id": "M2",
+			"actor": "Ana de Armas",
+			"character": "Joi"
+		},
+		{
+			"movie_id": "M5",
+			"actor": "Chris Pratt",
+			"character": "Star-Lord"
+		},
+		{
+			"movie_id": "M5",
+			"actor": "Chukwudi Iwuji",
+			"character": "High Evolutionary"
+		},
+		{
+			"movie_id": "M5",
+			"actor": "Bradley Cooper",
+			"character": "Rocket"
+		},
+		{
+			"movie_id": "M4",
+			"actor": "Chris Hemsworth",
+			"character": "Thor"
+		},
+		{
+			"movie_id": "M6",
+			"actor": "Margot Robbie",
+			"character": "Barbie"
+		},
+		{
+			"movie_id": "M7",
+			"actor": "Timothée Chalamet",
+			"character": "Paul Atreides"
+		},
+		{
+			"movie_id": "M7",
+			"actor": "Zendaya",
+			"character": "Chani"
+		},
+		{
+			"movie_id": "M7",
+			"actor": "Rebecca Ferguson"
+		},
+		{
+			"movie_id": "M7",
+			"actor": "Javier Bardem"
+		}
+	]
+}
