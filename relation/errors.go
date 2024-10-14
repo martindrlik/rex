@@ -2,4 +2,8 @@ package relation
 
 import "errors"
 
-var ErrMismatch = errors.New("schema mismatch")
+var (
+	ErrAlreadyPresent = errors.New("already present")
+	ErrMissingSchema  = errors.New("missing schema")
+	ErrSchemaMismatch = errors.New("schema mismatch")
+)
