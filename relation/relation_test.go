@@ -113,25 +113,22 @@ func TestList(t *testing.T) {
 
 func testList(t *testing.T) {
 	r := newRelation("foo", "bar")
-	if err := r.Add(map[string]any{"foo": 1, "bar": 2}); err != nil {
-		panic(err)
-	}
-	if err := r.Add(map[string]any{"foo": 3, "bar": 4}); err != nil {
-		panic(err)
-	}
+	add(r, map[string]any{"foo": 1, "bar": 2})
+	add(r, map[string]any{"foo": 3, "bar": 4})
+
 	expect := []map[string]any{
 		{"foo": 1, "bar": 2},
 		{"foo": 3, "bar": 4},
 	}
+
+	expectCount(r, len(expect), t)
+
 	idx := 0
 	for t1 := range r.List() {
 		if !maps.Equal(t1, expect[idx]) {
 			t.Errorf("(%d) expected tuples %+v and %+v to be equal", idx, t1, expect[idx])
 		}
 		idx++
-	}
-	if idx != 2 {
-		t.Errorf("expected number of listed tuples to be 2, got %d", idx)
 	}
 }
 
@@ -154,19 +151,77 @@ func testUnion(t *testing.T) {
 	add(r1, map[string]any{"foo": 1})
 	add(r2, map[string]any{"foo": 2})
 	r, err := relation.Union(r1, r2)
+
 	if err != nil {
-		panic(err)
+		t.Errorf("expected no error, got %v", err)
 	}
+
 	expect := []map[string]any{
 		{"foo": 1},
 		{"foo": 2},
 	}
+
+	expectCount(r, len(expect), t)
+
 	idx := 0
 	for t1 := range r.List() {
 		if !maps.Equal(t1, expect[idx]) {
 			t.Errorf("(%d) expected relation to contain %+v, got %+v", idx, expect[idx], t1)
 		}
 		idx++
+	}
+}
+
+func TestDifference(t *testing.T) {
+	t.Run("schema mismatch", testDifferenceSchemaMismatch)
+	t.Run("difference", testDifference)
+}
+
+func testDifferenceSchemaMismatch(t *testing.T) {
+	r1 := newRelation("foo")
+	r2 := newRelation("bar")
+
+	if _, err := r1.Difference(r2); err != relation.ErrSchemaMismatch {
+		t.Errorf("expected error %v, got %v", relation.ErrSchemaMismatch, err)
+	}
+}
+
+func testDifference(t *testing.T) {
+	r1 := newRelation("foo")
+	r2 := newRelation("foo")
+
+	for i := 1; i <= 3; i++ {
+		add(r1, map[string]any{"foo": i})
+	}
+	add(r2, map[string]any{"foo": 2})
+
+	r3, err := r1.Difference(r2)
+	if err != nil {
+		panic(err)
+	}
+
+	expect := []map[string]any{
+		{"foo": 1},
+		{"foo": 3}}
+
+	expectCount(r3, len(expect), t)
+
+	idx := 0
+	for t3 := range r3.List() {
+		if !maps.Equal(t3, expect[idx]) {
+			t.Errorf("expected to have %+v, got %+v", expect[idx], t3)
+		}
+		idx++
+	}
+}
+
+func TestCount(t *testing.T) {
+	r := newRelation("foo")
+	for i := 1; i <= 5; i++ {
+		add(r, map[string]any{"foo": i})
+	}
+	if n := r.Count(); n != 5 {
+		t.Errorf("expected relation to have 5 tuples, got %d", n)
 	}
 }
 
@@ -183,4 +238,10 @@ func add(r *relation.Relation, tuple map[string]any) *relation.Relation {
 		panic(err)
 	}
 	return r
+}
+
+func expectCount(r *relation.Relation, expectedCount int, t *testing.T) {
+	if n := r.Count(); n != expectedCount {
+		t.Errorf("expected relation to have %d tuples, got %d", expectedCount, n)
+	}
 }
