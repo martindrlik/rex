@@ -140,7 +140,7 @@ func TestUnion(t *testing.T) {
 func testUnionSchemaMismatch(t *testing.T) {
 	r1 := newRelation("foo")
 	r2 := newRelation("bar")
-	if _, err := relation.Union(r1, r2); err != relation.ErrSchemaMismatch {
+	if _, err := r1.Union(r2); err != relation.ErrSchemaMismatch {
 		t.Errorf("expected error %v, got %v", relation.ErrSchemaMismatch, err)
 	}
 }
@@ -150,7 +150,7 @@ func testUnion(t *testing.T) {
 	r2 := newRelation("foo")
 	add(r1, map[string]any{"foo": 1})
 	add(r2, map[string]any{"foo": 2})
-	r, err := relation.Union(r1, r2)
+	r, err := r1.Union(r2)
 
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
@@ -222,6 +222,63 @@ func TestCount(t *testing.T) {
 	}
 	if n := r.Count(); n != 5 {
 		t.Errorf("expected relation to have 5 tuples, got %d", n)
+	}
+}
+
+func TestNaturalJoin(t *testing.T) {
+	t.Run("natural join", testNaturalJoin)
+	t.Run("cartasian product", testNaturalJoinCartasianProduct)
+}
+
+func testNaturalJoin(t *testing.T) {
+	r1 := newRelation("foo", "bar")
+	r2 := newRelation("foo", "baz")
+
+	add(r1, map[string]any{"foo": 1, "bar": 2})
+	add(r1, map[string]any{"foo": 2, "bar": 3})
+	add(r2, map[string]any{"foo": 1, "baz": 4})
+	add(r2, map[string]any{"foo": 3, "baz": 5})
+
+	r3 := r1.NaturalJoin(r2)
+
+	expect := []map[string]any{
+		{"foo": 1, "bar": 2, "baz": 4},
+	}
+
+	expectCount(r3, len(expect), t)
+
+	idx := 0
+	for t3 := range r3.List() {
+		if !maps.Equal(t3, expect[idx]) {
+			t.Errorf("expected to have %+v, got %+v", expect[idx], t3)
+		}
+		idx++
+	}
+}
+
+func testNaturalJoinCartasianProduct(t *testing.T) {
+	r1 := newRelation("foo")
+	r2 := newRelation("bar")
+
+	add(r1, map[string]any{"foo": 1})
+	add(r2, map[string]any{"bar": 1})
+	add(r2, map[string]any{"bar": 2})
+
+	r3 := r1.NaturalJoin(r2)
+
+	expect := []map[string]any{
+		{"foo": 1, "bar": 1},
+		{"foo": 1, "bar": 2},
+	}
+
+	expectCount(r3, len(expect), t)
+
+	idx := 0
+	for t3 := range r3.List() {
+		if !maps.Equal(t3, expect[idx]) {
+			t.Errorf("expected to have %+v, got %+v", expect[idx], t3)
+		}
+		idx++
 	}
 }
 
