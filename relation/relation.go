@@ -5,38 +5,34 @@ import (
 	"maps"
 )
 
-type tuple = map[string]any
+type tup = map[string]any
 
 // Relation represents a relation with a schema and tuples.
 type Relation struct {
 	schema map[string]struct{}
-	tuples []tuple
+	tuples []tup
 }
 
-// New creates a new relation with given attributes.
-func New(attributes ...string) (*Relation, error) {
-	if len(attributes) == 0 {
+// New creates a new relation with attributes given by aa.
+func New(aa ...string) (*Relation, error) {
+	if len(aa) == 0 {
 		return nil, ErrMissingSchema
 	}
 
-	schema := make(map[string]struct{}, len(attributes))
-	for _, attribute := range attributes {
-		schema[attribute] = struct{}{}
+	schema := make(map[string]struct{}, len(aa))
+	for _, a := range aa {
+		schema[a] = struct{}{}
 	}
 
-	tuples := make([]tuple, 0)
-	return &Relation{
-		schema,
-		tuples,
-	}, nil
+	return &Relation{schema, []tup{}}, nil
 }
 
-// Count returns number of tuples in relation.
+// Count returns number of tuples in the relation.
 func (r1 *Relation) Count() int { return len(r1.tuples) }
 
-// Add tuple t1 to relation. Returns error if tuple has different schema or if already present.
+// Add adds tuple t1 to relation. Returns error if tuple t1 has different schema or if already present.
 func (r1 *Relation) Add(t1 map[string]any) error {
-	if !r1.hasMatchingSchema(t1) {
+	if !r1.hasMatch(t1) {
 		return ErrSchemaMismatch
 	}
 
@@ -50,7 +46,7 @@ func (r1 *Relation) Add(t1 map[string]any) error {
 
 // Contain returns true if tuple t2 is present in relation. Returns false otherwise.
 func (r1 *Relation) Contain(t2 map[string]any) bool {
-	if r1.hasMatchingSchema(t2) {
+	if r1.hasMatch(t2) {
 		for t1 := range r1.List() {
 			if maps.Equal(t1, t2) {
 				return true
@@ -62,7 +58,7 @@ func (r1 *Relation) Contain(t2 map[string]any) bool {
 
 // List returns a sequence of tuples in relation.
 func (r1 *Relation) List() iter.Seq[map[string]any] {
-	return func(yield func(tuple) bool) {
+	return func(yield func(tup) bool) {
 		for _, t1 := range r1.tuples {
 			if !yield(t1) {
 				return
@@ -77,8 +73,7 @@ func (r1 *Relation) Union(r2 *Relation) (*Relation, error) {
 		return nil, ErrSchemaMismatch
 	}
 
-	r3 := &Relation{schema: make(map[string]struct{}, len(r1.schema)), tuples: make([]tuple, 0, len(r1.tuples)+len(r2.tuples))}
-	maps.Copy(r3.schema, r1.schema)
+	r3 := newRelation(r1.schema, len(r1.tuples)+len(r2.tuples))
 
 	for t1 := range r1.List() {
 		r3.tuples = append(r3.tuples, shallowCopyTuple(t1))
@@ -92,13 +87,12 @@ func (r1 *Relation) Union(r2 *Relation) (*Relation, error) {
 	return r3, nil
 }
 
-// Difference creates new relation with only tuples that are not included in r2.
 func (r1 *Relation) Difference(r2 *Relation) (*Relation, error) {
 	if !maps.Equal(r1.schema, r2.schema) {
 		return nil, ErrSchemaMismatch
 	}
 
-	r3 := &Relation{schema: map[string]struct{}{}, tuples: make([]tuple, 0, len(r1.tuples))}
+	r3 := newRelation(r1.schema, len(r1.tuples))
 
 	for t1 := range r1.List() {
 		if !r2.Contain(t1) {
@@ -110,9 +104,9 @@ func (r1 *Relation) Difference(r2 *Relation) (*Relation, error) {
 }
 
 func (r1 *Relation) NaturalJoin(r2 *Relation) *Relation {
-	common := r1.commonAttributes(r2)
-	concat := func(t, t2 tuple) (tuple, bool) {
-		t3 := make(tuple, len(t)+len(t2))
+	common := r1.common(r2)
+	concat := func(t, t2 tup) (tup, bool) {
+		t3 := make(tup, len(t)+len(t2))
 		for a := range common {
 			if t[a] != t2[a] {
 				return nil, false
@@ -138,18 +132,12 @@ func (r1 *Relation) NaturalJoin(r2 *Relation) *Relation {
 	return r3
 }
 
-func (r1 *Relation) Rename(newByOld map[string]string) (*Relation, error) {
-
-	// validate new schema
+func (r1 *Relation) Rename(f func(old string) (new string)) (*Relation, error) {
 	schema := make(map[string]struct{}, len(r1.schema))
 	schemaCount := make(map[string]int, len(r1.schema))
+
 	for a1 := range r1.schema {
-		var a string
-		if a2, ok := newByOld[a1]; ok {
-			a = a2
-		} else {
-			a = a1
-		}
+		a := f(a1)
 		schemaCount[a]++
 		if schemaCount[a] > 1 {
 			return nil, ErrDuplicateAttribute(a)
@@ -157,19 +145,12 @@ func (r1 *Relation) Rename(newByOld map[string]string) (*Relation, error) {
 		schema[a] = struct{}{}
 	}
 
-	r2 := &Relation{schema: map[string]struct{}{}, tuples: make([]tuple, 0, len(r1.tuples))}
-	maps.Copy(r2.schema, schema)
+	r2 := newRelation(schema, len(r1.tuples))
 
 	for t1 := range r1.List() {
-		t2 := make(tuple, len(t1))
+		t2 := make(tup, len(t1))
 		for a1, v1 := range t1 {
-			var a string
-			if a2, ok := newByOld[a1]; ok {
-				a = a2
-			} else {
-				a = a1
-			}
-			t2[a] = v1
+			t2[f(a1)] = v1
 		}
 		r2.tuples = append(r2.tuples, t2)
 	}
@@ -177,7 +158,23 @@ func (r1 *Relation) Rename(newByOld map[string]string) (*Relation, error) {
 	return r2, nil
 }
 
-func (r1 *Relation) commonAttributes(r2 *Relation) map[string]struct{} {
+func (r1 *Relation) Intersection(r2 *Relation) (*Relation, error) {
+	if !maps.Equal(r1.schema, r2.schema) {
+		return nil, ErrSchemaMismatch
+	}
+
+	r3 := newRelation(r1.schema, 0)
+
+	for t1 := range r1.List() {
+		if r2.Contain(t1) {
+			r3.tuples = append(r3.tuples, shallowCopyTuple(t1))
+		}
+	}
+
+	return r3, nil
+}
+
+func (r1 *Relation) common(r2 *Relation) map[string]struct{} {
 	m := make(map[string]struct{})
 	for a := range r1.schema {
 		if _, ok := r2.schema[a]; ok {
@@ -187,7 +184,7 @@ func (r1 *Relation) commonAttributes(r2 *Relation) map[string]struct{} {
 	return m
 }
 
-func (r1 *Relation) hasMatchingSchema(t2 map[string]any) bool {
+func (r1 *Relation) hasMatch(t2 map[string]any) bool {
 	if len(r1.schema) == len(t2) {
 		for attribute := range t2 {
 			if _, ok := r1.schema[attribute]; !ok {
@@ -201,8 +198,14 @@ func (r1 *Relation) hasMatchingSchema(t2 map[string]any) bool {
 	return false
 }
 
-func shallowCopyTuple(t1 tuple) tuple {
-	t2 := make(tuple, len(t1))
+func shallowCopyTuple(t1 tup) tup {
+	t2 := make(tup, len(t1))
 	maps.Copy(t2, t1)
 	return t2
+}
+
+func newRelation(srcSchema map[string]struct{}, tupleCapacity int) *Relation {
+	dstSchema := make(map[string]struct{}, len(srcSchema))
+	maps.Copy(dstSchema, srcSchema)
+	return &Relation{dstSchema, make([]tup, 0, tupleCapacity)}
 }
