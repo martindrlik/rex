@@ -77,9 +77,7 @@ func (r1 *Relation) Union(r2 *Relation) (*Relation, error) {
 		return nil, ErrSchemaMismatch
 	}
 
-	r3 := &Relation{
-		schema: make(map[string]struct{}, len(r1.schema)),
-		tuples: make([]tuple, 0, len(r1.tuples)+len(r2.tuples))}
+	r3 := &Relation{schema: make(map[string]struct{}, len(r1.schema)), tuples: make([]tuple, 0, len(r1.tuples)+len(r2.tuples))}
 	maps.Copy(r3.schema, r1.schema)
 
 	for t1 := range r1.List() {
@@ -100,9 +98,7 @@ func (r1 *Relation) Difference(r2 *Relation) (*Relation, error) {
 		return nil, ErrSchemaMismatch
 	}
 
-	r3 := &Relation{
-		schema: map[string]struct{}{},
-		tuples: make([]tuple, 0, len(r1.tuples))}
+	r3 := &Relation{schema: map[string]struct{}{}, tuples: make([]tuple, 0, len(r1.tuples))}
 
 	for t1 := range r1.List() {
 		if !r2.Contain(t1) {
@@ -140,6 +136,45 @@ func (r1 *Relation) NaturalJoin(r2 *Relation) *Relation {
 	}
 
 	return r3
+}
+
+func (r1 *Relation) Rename(newByOld map[string]string) (*Relation, error) {
+
+	// validate new schema
+	schema := make(map[string]struct{}, len(r1.schema))
+	schemaCount := make(map[string]int, len(r1.schema))
+	for a1 := range r1.schema {
+		var a string
+		if a2, ok := newByOld[a1]; ok {
+			a = a2
+		} else {
+			a = a1
+		}
+		schemaCount[a]++
+		if schemaCount[a] > 1 {
+			return nil, ErrDuplicateAttribute(a)
+		}
+		schema[a] = struct{}{}
+	}
+
+	r2 := &Relation{schema: map[string]struct{}{}, tuples: make([]tuple, 0, len(r1.tuples))}
+	maps.Copy(r2.schema, schema)
+
+	for t1 := range r1.List() {
+		t2 := make(tuple, len(t1))
+		for a1, v1 := range t1 {
+			var a string
+			if a2, ok := newByOld[a1]; ok {
+				a = a2
+			} else {
+				a = a1
+			}
+			t2[a] = v1
+		}
+		r2.tuples = append(r2.tuples, t2)
+	}
+
+	return r2, nil
 }
 
 func (r1 *Relation) commonAttributes(r2 *Relation) map[string]struct{} {

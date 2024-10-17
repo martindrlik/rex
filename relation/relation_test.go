@@ -282,6 +282,52 @@ func testNaturalJoinCartasianProduct(t *testing.T) {
 	}
 }
 
+func TestRename(t *testing.T) {
+	t.Run("rename", testRename)
+	t.Run("duplicate attribute", testRenameDuplicateAttribute)
+}
+
+func testRenameDuplicateAttribute(t *testing.T) {
+	r1 := newRelation("foo", "bar")
+	if _, err := r1.Rename(map[string]string{"foo": "bar"}); err.Error() != relation.ErrDuplicateAttribute("bar").Error() {
+		t.Errorf("expected error %v, got %v", relation.ErrDuplicateAttribute("bar").Error(), err.Error())
+	}
+}
+
+func testRename(t *testing.T) {
+	r1 := newRelation("bar", "baz")
+	add(r1, map[string]any{"bar": 2, "baz": 1})
+	type testCase struct {
+		testName string
+		input    map[string]string
+		expect   []map[string]any
+	}
+	for tc := range func(yield func(testCase) bool) {
+		yield(testCase{
+			testName: "bar to foo",
+			input:    map[string]string{"baz": "foo"},
+			expect:   []map[string]any{{"foo": 1, "bar": 2}},
+		})
+	} {
+		t.Run(tc.testName, func(t *testing.T) {
+			r2, err := r1.Rename(tc.input)
+			if err != nil {
+				t.Errorf("expected no error, got %v", err)
+			}
+
+			expectCount(r2, len(tc.expect), t)
+
+			idx := 0
+			for t2 := range r2.List() {
+				if !maps.Equal(t2, tc.expect[idx]) {
+					t.Errorf("expected to have %+v, got %+v", tc.expect[idx], t2)
+				}
+				idx++
+			}
+		})
+	}
+}
+
 func newRelation(attributes ...string) *relation.Relation {
 	r, err := relation.New(attributes...)
 	if err != nil {
