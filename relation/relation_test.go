@@ -221,21 +221,7 @@ func TestNaturalJoin(t *testing.T) {
 		add(r2, tup{"foo": 1, "baz": 4})
 		add(r2, tup{"foo": 3, "baz": 5})
 
-		r3 := r1.NaturalJoin(r2)
-
-		expect := []tup{
-			{"foo": 1, "bar": 2, "baz": 4},
-		}
-
-		expectCount(r3, len(expect), t)
-
-		idx := 0
-		for t3 := range r3.List() {
-			if !maps.Equal(t3, expect[idx]) {
-				t.Errorf("expected to have %+v, got %+v", expect[idx], t3)
-			}
-			idx++
-		}
+		expectRelation(r1.NaturalJoin(r2), []tup{{"foo": 1, "bar": 2, "baz": 4}}, t)
 	})
 	t.Run("cartasian product", func(t *testing.T) {
 		r1 := newRelation("foo")
@@ -245,22 +231,10 @@ func TestNaturalJoin(t *testing.T) {
 		add(r2, tup{"bar": 1})
 		add(r2, tup{"bar": 2})
 
-		r3 := r1.NaturalJoin(r2)
-
-		expect := []tup{
+		expectRelation(r1.NaturalJoin(r2), []tup{
 			{"foo": 1, "bar": 1},
 			{"foo": 1, "bar": 2},
-		}
-
-		expectCount(r3, len(expect), t)
-
-		idx := 0
-		for t3 := range r3.List() {
-			if !maps.Equal(t3, expect[idx]) {
-				t.Errorf("expected to have %+v, got %+v", expect[idx], t3)
-			}
-			idx++
-		}
+		}, t)
 	})
 }
 
@@ -330,18 +304,36 @@ func TestIntersection(t *testing.T) {
 		if err != nil {
 			t.Errorf("expected no error, got %v", err)
 		}
+		expectRelation(r3, []tup{{"foo": 2}}, t)
+	})
+}
 
-		expect := []tup{{"foo": 2}}
-
-		expectCount(r3, len(expect), t)
-
-		idx := 0
-		for t3 := range r3.List() {
-			if !maps.Equal(t3, expect[idx]) {
-				t.Errorf("expected to have %+v, got %+v", expect[idx], t3)
-			}
-			idx++
+func TestProject(t *testing.T) {
+	t.Run("missing schema", func(t *testing.T) {
+		r1 := newRelation("foo", "bar", "baz")
+		add(r1, tup{"foo": 1, "bar": 2, "baz": 3})
+		if _, err := r1.Project(); err != relation.ErrMissingSchema {
+			t.Errorf("(no argument) expected error %v, got %v", relation.ErrMissingSchema, err)
 		}
+		if _, err := r1.Project([]string{}...); err != relation.ErrMissingSchema {
+			t.Errorf("(empty slice) expected error %v, got %v", relation.ErrMissingSchema, err)
+		}
+	})
+	t.Run("schema mismatch", func(t *testing.T) {
+		r1 := newRelation("foo", "bar", "baz")
+		add(r1, tup{"foo": 1, "bar": 2, "baz": 3})
+		if _, err := r1.Project("pub"); err != relation.ErrSchemaMismatch {
+			t.Errorf("expected error %v, got %v", relation.ErrSchemaMismatch, err)
+		}
+	})
+	t.Run("project", func(t *testing.T) {
+		r1 := newRelation("foo", "bar", "baz")
+		add(r1, tup{"foo": 1, "bar": 2, "baz": 3})
+		r2, err := r1.Project("bar")
+		if err != nil {
+			t.Errorf("expected no error, got %v", err)
+		}
+		expectRelation(r2, []tup{{"bar": 2}}, t)
 	})
 }
 
@@ -363,6 +355,20 @@ func add(r *relation.Relation, tuple map[string]any) *relation.Relation {
 func expectCount(r *relation.Relation, expectedCount int, t *testing.T) {
 	if n := r.Count(); n != expectedCount {
 		t.Errorf("expected relation to have %d tuples, got %d", expectedCount, n)
+	}
+}
+
+func expectRelation(r *relation.Relation, expect []tup, t *testing.T) {
+	if n := r.Count(); n != len(expect) {
+		t.Errorf("expected relation to have %d tuples, got %d", len(expect), n)
+	}
+
+	idx := 0
+	for t1 := range r.List() {
+		if !maps.Equal(t1, expect[idx]) {
+			t.Errorf("expected to have %+v, got %+v", expect[idx], t1)
+		}
+		idx++
 	}
 }
 

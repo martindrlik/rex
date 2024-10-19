@@ -174,6 +174,32 @@ func (r1 *Relation) Intersection(r2 *Relation) (*Relation, error) {
 	return r3, nil
 }
 
+func (r1 *Relation) Project(aa ...string) (*Relation, error) {
+	if len(aa) == 0 {
+		return nil, ErrMissingSchema
+	}
+
+	schema := make(map[string]struct{}, len(aa))
+	for _, a := range aa {
+		if _, ok := r1.schema[a]; !ok {
+			return nil, ErrSchemaMismatch
+		}
+		schema[a] = struct{}{}
+	}
+
+	r2 := newRelation(schema, len(r1.tuples))
+
+	for t1 := range r1.List() {
+		t2 := make(tup, len(schema))
+		for a := range schema {
+			t2[a] = t1[a]
+		}
+		r2.tuples = append(r2.tuples, t2)
+	}
+
+	return r2, nil
+}
+
 func (r1 *Relation) common(r2 *Relation) map[string]struct{} {
 	m := make(map[string]struct{})
 	for a := range r1.schema {
